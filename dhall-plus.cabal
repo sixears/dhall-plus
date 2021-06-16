@@ -3,7 +3,7 @@ name:                dhall-plus
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.0.0.0
+version:             0.0.1.0
 synopsis:            Utilities for working with Dhall
 description:         Utilities for working with Dhall
 cabal-version:       >= 1.10
@@ -25,8 +25,9 @@ library
                     , UnicodeSyntax
                     , ViewPatterns
 
-  build-depends: base, base-unicode-symbols, deepseq, dhall, enclosed-exceptions
-               , mtl, lens, tasty, tasty-hunit, text
+  build-depends: base, base-unicode-symbols, data-textual, deepseq, dhall
+               , enclosed-exceptions, lens, mtl, tasty, tasty-hunit, text
+               , text-printer
 
                , fpath         >= 1.1.4.2
                , monaderror-io >= 1.1.0.1

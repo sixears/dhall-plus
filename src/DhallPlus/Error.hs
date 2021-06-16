@@ -17,7 +17,7 @@ import Control.Exception  ( Exception, SomeException, fromException )
 import Data.Bool          ( Bool( False ) )
 import Data.Eq            ( Eq( (==) ) )
 import Data.Either        ( Either( Left, Right ) )
-import Data.Function      ( id )
+import Data.Function      ( ($), id )
 import Data.Maybe         ( Maybe( Just ) )
 import Data.Void          ( Void )
 import Text.Show          ( Show( show ) )
@@ -27,6 +27,10 @@ import Text.Show          ( Show( show ) )
 import Data.Bool.Unicode      ( (∧) )
 import Data.Eq.Unicode        ( (≡) )
 import Data.Function.Unicode  ( (∘) )
+
+-- data-textual ------------------------
+
+import Data.Textual  ( Printable( print ) )
 
 -- dhall -------------------------------
 
@@ -43,6 +47,10 @@ import Control.Lens.Review  ( (#) )
 -- monaderror-io -----------------------
 
 import MonadError.IO.Error  ( AsIOError( _IOError ), IOError )
+
+-- text-printer ------------------------
+
+import qualified  Text.Printer  as  P
 
 --------------------------------------------------------------------------------
 
@@ -69,6 +77,13 @@ data DhallError = DhallParseError Dhall.Parser.ParseError
 --------------------
 
 instance Exception DhallError
+
+--------------------
+
+instance Printable DhallError where
+  print (DhallParseError pe) = P.string $ show pe
+  print (DhallTypeError  te) = P.string $ show te
+  print (DhallSomeError  se) = P.string $ show se
 
 --------------------
 
@@ -120,6 +135,10 @@ data DhallIOError = DIEDhallError DhallError
   deriving Show
 
 instance Exception DhallIOError
+
+instance Printable DhallIOError where
+  print (DIEDhallError de)  = print de
+  print (DIEIOError    ioe) = print ioe
 
 _DIEDhallError ∷ Prism' DhallIOError DhallError
 _DIEDhallError = prism DIEDhallError
