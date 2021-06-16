@@ -3,7 +3,7 @@ name:                dhall-plus
 -- PVP summary:      +-+------- breaking API changes
 --                   | | +----- non-breaking API additions
 --                   | | | +--- code changes with no API change
-version:             0.0.1.0
+version:             0.0.2.0
 synopsis:            Utilities for working with Dhall
 description:         Utilities for working with Dhall
 cabal-version:       >= 1.10
@@ -22,6 +22,7 @@ library
                     , OverloadedStrings
                     , ScopedTypeVariables
                     , TypeApplications
+                    , PatternSynonyms
                     , UnicodeSyntax
                     , ViewPatterns
 
@@ -30,6 +31,7 @@ library
                , text-printer
 
                , fpath         >= 1.1.4.2
+               , has-callstack >= 1.0.1.0
                , monaderror-io >= 1.1.0.1
                , monadio-plus  >= 1.4.9.0
                , more-unicode  >= 0.0.15.0

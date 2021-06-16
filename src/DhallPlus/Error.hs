@@ -14,12 +14,10 @@ where
 -- base --------------------------------
 
 import Control.Exception  ( Exception, SomeException, fromException )
-import Data.Bool          ( Bool( False ) )
 import Data.Eq            ( Eq( (==) ) )
-import Data.Either        ( Either( Left, Right ) )
-import Data.Function      ( ($), id )
-import Data.Maybe         ( Maybe( Just ) )
+import Data.Function      ( ($), (&), id )
 import Data.Void          ( Void )
+import GHC.Stack          ( CallStack, HasCallStack, callStack )
 import Text.Show          ( Show( show ) )
 
 -- base-unicode-symbols ----------------
@@ -39,14 +37,26 @@ import qualified  Dhall.TypeCheck
 
 import Dhall.Parser     ( Src )
 
+-- has-callstack -----------------------
+
+import HasCallstack  ( HasCallstack( callstack ) )
+
 -- lens --------------------------------
 
+import Control.Lens.Lens    ( lens )
 import Control.Lens.Prism   ( Prism', prism )
 import Control.Lens.Review  ( (#) )
 
 -- monaderror-io -----------------------
 
 import MonadError.IO.Error  ( AsIOError( _IOError ), IOError )
+
+-- more-unicode ------------------------
+
+import Data.MoreUnicode.Bool    ( pattern 𝕱 )
+import Data.MoreUnicode.Either  ( pattern 𝕷, pattern 𝕽 )
+import Data.MoreUnicode.Lens    ( (⊣), (⊢) )
+import Data.MoreUnicode.Maybe   ( pattern 𝕵 )
 
 -- text-printer ------------------------
 
@@ -69,9 +79,9 @@ class AsDhallSomeError ε where
 
 ------------------------------------------------------------
 
-data DhallError = DhallParseError Dhall.Parser.ParseError
-                | DhallTypeError  (Dhall.TypeCheck.TypeError Src Void)
-                | DhallSomeError SomeException
+data DhallError = DhallParseError Dhall.Parser.ParseError CallStack
+                | DhallTypeError  (Dhall.TypeCheck.TypeError Src Void) CallStack
+                | DhallSomeError  SomeException CallStack
   deriving Show
 
 --------------------
@@ -80,45 +90,55 @@ instance Exception DhallError
 
 --------------------
 
+instance HasCallstack DhallError where
+  callstack = lens (\ case (DhallParseError _ cs) → cs
+                           (DhallTypeError  _ cs) → cs
+                           (DhallSomeError  _ cs) → cs
+                   )
+                   (\ de cs →
+                       case de of
+                         (DhallParseError pe _) → DhallParseError pe cs
+                         (DhallTypeError  te _) → DhallTypeError te cs
+                         (DhallSomeError  se _) → DhallSomeError se cs
+                   )
+
+--------------------
+
 instance Printable DhallError where
-  print (DhallParseError pe) = P.string $ show pe
-  print (DhallTypeError  te) = P.string $ show te
-  print (DhallSomeError  se) = P.string $ show se
+  print (DhallParseError pe _) = P.string $ show pe
+  print (DhallTypeError  te _) = P.string $ show te
+  print (DhallSomeError  se _) = P.string $ show se
 
 --------------------
 
 instance AsDhallTypeSrcError DhallError where
-  _DhallTypeSrcError = prism DhallTypeError
-                             (\ case DhallTypeError e → Right e; e → Left e)
+  _DhallTypeSrcError = prism (\ te → DhallTypeError te callStack)
+                             (\ case DhallTypeError e _ → 𝕽 e; e → 𝕷 e)
 
 --------------------
 
 instance AsDhallParseError DhallError where
-  _DhallParseError = prism DhallParseError
-                           (\ case DhallParseError e → Right e; e → Left e)
+  _DhallParseError = prism (\ pe → DhallParseError pe callStack)
+                           (\ case DhallParseError e _ → 𝕽 e; e → 𝕷 e)
 
 --------------------
 
 instance AsDhallSomeError DhallError where
-  _DhallSomeError = prism DhallSomeError
-                          (\ case DhallSomeError e → Right e; e → Left e)
+  _DhallSomeError = prism (\ se → DhallSomeError se callStack)
+                          (\ case DhallSomeError e _ → 𝕽 e; e → 𝕷 e)
 
 --------------------
 
 instance Eq DhallError where
-  (DhallParseError e) == (DhallParseError e') =
+  (DhallParseError e _) == (DhallParseError e' _) =
       Dhall.Parser.unwrap e ≡ Dhall.Parser.unwrap e'
     ∧ Dhall.Parser.input  e ≡ Dhall.Parser.input  e'
 
-  (DhallParseError _) == _ = False
-
-  (DhallTypeError e) == (DhallTypeError e') =
+  (DhallTypeError e _) == (DhallTypeError e' _) =
       Dhall.TypeCheck.current e ≡ Dhall.TypeCheck.current e'
     ∧ show e ≡ show e'
 
-  (DhallTypeError _) == _ = False
-
-  (DhallSomeError _) == _ = False
+  _ == _ = 𝕱
 
 --------------------
 
@@ -136,22 +156,33 @@ data DhallIOError = DIEDhallError DhallError
 
 instance Exception DhallIOError
 
+instance HasCallstack DhallIOError where
+  callstack = lens (\ case (DIEDhallError de)  → de  ⊣ callstack
+                           (DIEIOError    ioe) → ioe ⊣ callstack)
+                   (\ dioe cs →
+                       case dioe of
+                         (DIEDhallError de) →
+                           DIEDhallError $ de & callstack ⊢ cs
+                         (DIEIOError ioe) →
+                           DIEIOError $ ioe & callstack ⊢ cs
+                   )
+
 instance Printable DhallIOError where
   print (DIEDhallError de)  = print de
   print (DIEIOError    ioe) = print ioe
 
 _DIEDhallError ∷ Prism' DhallIOError DhallError
 _DIEDhallError = prism DIEDhallError
-                       (\ case DIEDhallError e → Right e; e → Left e)
+                       (\ case DIEDhallError e → 𝕽 e; e → 𝕷 e)
 
 _DIEIOError ∷ Prism' DhallIOError IOError
-_DIEIOError = prism DIEIOError (\ case DIEIOError e → Right e; e → Left e)
+_DIEIOError = prism DIEIOError (\ case DIEIOError e → 𝕽 e; e → 𝕷 e)
 
 --------------------
 
 instance AsDhallError DhallIOError where
   _DhallError = prism DIEDhallError
-                      (\ case DIEDhallError e → Right e; e → Left e)
+                      (\ case DIEDhallError e → 𝕽 e; e → 𝕷 e)
 
 --------------------
 
@@ -171,16 +202,16 @@ instance AsDhallSomeError DhallIOError where
 --------------------
 
 instance AsIOError DhallIOError where
-  _IOError = prism DIEIOError (\ case DIEIOError e → Right e; e → Left e)
+  _IOError = prism DIEIOError (\ case DIEIOError e → 𝕽 e; e → 𝕷 e)
 
 --------------------
 
 instance Eq DhallIOError where
   (DIEDhallError e) == (DIEDhallError e') = e ≡ e'
-  (DIEDhallError _) == _ = False
+  (DIEDhallError _) == _ = 𝕱
 
   (DIEIOError e) == (DIEIOError e') = e ≡ e'
-  (DIEIOError _) == _ = False
+  (DIEIOError _) == _ = 𝕱
 
 --------------------
 
@@ -192,13 +223,13 @@ instance AsDhallIOError DhallIOError where
 
 ------------------------------------------------------------
 
-mkDhallError ∷ AsDhallError ε ⇒ SomeException → ε
-mkDhallError (fromException @Dhall.Parser.ParseError → Just e) =
-  _DhallError # DhallParseError e
-mkDhallError (fromException @(Dhall.TypeCheck.TypeError Src Void) → Just e) =
-  _DhallError # DhallTypeError e
+mkDhallError ∷ (AsDhallError ε, HasCallStack) ⇒ SomeException → ε
+mkDhallError (fromException @Dhall.Parser.ParseError → 𝕵 e) =
+  _DhallError # DhallParseError e callStack
+mkDhallError (fromException @(Dhall.TypeCheck.TypeError Src Void) → 𝕵 e) =
+  _DhallError # DhallTypeError e callStack
 mkDhallError e =
-  _DhallError # DhallSomeError e
+  _DhallError # DhallSomeError e callStack
 
 --------------------
 
@@ -208,7 +239,7 @@ mkDhallError' = mkDhallError
 ----------------------------------------
 
 mkDhallIOError ∷ AsDhallIOError ε ⇒ SomeException → ε
-mkDhallIOError (fromException @IOError → Just e) =
+mkDhallIOError (fromException @IOError → 𝕵 e) =
  _DhallIOError # DIEIOError e
 mkDhallIOError e =
  _DhallIOError # DIEDhallError (mkDhallError e)
