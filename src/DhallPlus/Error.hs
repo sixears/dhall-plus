@@ -154,7 +154,11 @@ data DhallIOError = DIEDhallError DhallError
                   | DIEIOError    IOError
   deriving Show
 
+--------------------
+
 instance Exception DhallIOError
+
+--------------------
 
 instance HasCallstack DhallIOError where
   callstack = lens (\ case (DIEDhallError de)  → de  ⊣ callstack
@@ -166,6 +170,8 @@ instance HasCallstack DhallIOError where
                          (DIEIOError ioe) →
                            DIEIOError $ ioe & callstack ⊢ cs
                    )
+
+--------------------
 
 instance Printable DhallIOError where
   print (DIEDhallError de)  = print de

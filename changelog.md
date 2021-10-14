@@ -1,3 +1,7 @@
+0.0.2.1 2021-10-11
+==================
+- upgrade dependencies, including monadio-plus to 2.0.0.0
+
 0.0.2.0 2021-06-16
 ==================
 - add HasCallstack to DhallError, DhallIOError
